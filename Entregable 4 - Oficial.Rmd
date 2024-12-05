@@ -1,0 +1,902 @@
+---
+title: "Presentación Final - Consuelo Escobar y Xaris Valladares"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: sandstone
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(flexdashboard)
+library(rio)
+library(tidyverse)
+```
+
+Exploración de data {}
+===================================== 
+
+ Column {data-width=500}
+-------------------------------------------------   
+### Variables a utilizar
+
+```{r}
+library(rio)
+data=import("dataoficial.csv")
+```
+
+
+En la data figuran, además de las variables a analizar, las variables de año, nombre del país (Country Name), código del país en código ISO de 3 letras y la región a la que pertenece cada uno de los países en cuestión.
+
+Las variables seleccionadas son Participación femenina en parlamentos nacionales, el crecimiento del PBI anual, la tasa de graduación de mujeres en educación superior, tasa de participación femenina en la fuerza laboral por país,la estimación de la estabilidad política y ausencia de violencia por país y  la estimación del control de corrupción por país. La participación femenina en parlamentos nacionales será utilizada como la variable dependiente. Se evalurá si las otras variables mencionadas la afectan y explican. Asimismo, la calificación de igualdad de género por país será utilizada como la variable de control. 
+
+Breve descripción de cada variable: 
+
+- Participación femenina en parlamentos nacionales (escanos): Variable representada por el porcentaje de escaños asignado a mujeres en cada país.
+- Crecimiento del PBI anual (PBI): Indica el porcentaje de cambio en la economía de un país de un año a otro
+- Tasa de graduación de mujeres en educación superior (educacion_superior): Porcentaje de mujeres que completan la educación superior en un país, en comparación con el total de la población femenina en la edad típica de graduación. 
+- Tasa de participación femenina en la fuerza laboral por país (fuerza_laboral): Mide el porcentaje de mujeres que participan activamente en el mercado laboral de un país
+- Estimación de la estabilidad política y ausencia de violencia por país (estabilidad_politica): Indicador que mide la estabilidad política de un país y la ausencia de violencia y conflictos. Un valor más alto indica un entorno político más estable, mientras que un valor bajo refleja mayores niveles de inestabilidad y violencia
+- La estimación del control de corrupción por país (corrupcion): Representa la percepción del nivel de corrupción en el gobierno de un país
+- Calificación de igualdad de género por país (igualdad): Mide qué tan equitativo es un país en cuanto a oportunidades y derechos entre hombres y mujeres, con un valor más alto indicando una mayor igualdad y un valor bajo reflejando disparidades significativas entre géneros. 
+
+
+Los gráficos analizan las variables exclusivamente para el año 2020 como parte de un análisis exploratorio.
+
+### Gráfico de Barras de la Variable Dependiente de países por Región
+
+```{r}
+# Cargar las librerías necesarias
+library(dplyr)
+library(ggplot2)
+
+# Agrupar por región y calcular la media de participación femenina (escanos) por región
+region_participacion <- data %>%
+  group_by(region) %>%
+  summarise(
+    media_participacion = mean(escanos, na.rm = TRUE), # Calculamos la media, ignorando los NA
+    .groups = "drop"  # Para evitar agrupamiento extra en el resultado
+  ) %>%
+  arrange(desc(media_participacion)) # Ordenamos de mayor a menor
+
+# Crear el gráfico de barras para visualizar la participación femenina por región
+ggplot(region_participacion, aes(x = reorder(region, -media_participacion), y = media_participacion, fill = region)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Participación Femenina en Parlamentos por Región",
+    x = "Región",
+    y = "Media de Participación Femenina (%)",
+    fill = "Región"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),  # Eliminar etiquetas en el eje X
+        axis.ticks.x = element_blank(), # Eliminar marcas en el eje X
+        legend.position = "bottom",     # Colocar la leyenda en la parte inferior
+        legend.title = element_blank(), # Quitar el título de la leyenda
+        legend.text = element_text(size = 10)) + # Ajustar tamaño de la leyenda
+  scale_fill_brewer(palette = "Set3") # Colores para las regiones
+```
+
+
+
+
+Column {data-width=500} {.tabset}
+--------------------------------------------
+### Gráfico de la variable dependiente: Participación femenina en parlamentos
+
+```{r}
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(rnaturalearth)
+library(sf)
+```
+```{r}
+# Descargar el mapa mundial sin caracteres extra
+world_map <- ne_countries(scale = "medium", returnclass = "sf")
+```
+
+```{r}
+map_data <- left_join(world_map, data, by = c("sov_a3" = "Country_Code"))
+```
+
+```{r}
+library(ggplot2)
+library(plotly)
+
+gg <- ggplot(map_data) +
+  geom_sf(aes(fill = escanos), color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "plasma", name = "Participación Femenina (%)") +
+  labs(title = "Participación Femenina en Parlamentos a Nivel Mundial") +
+  theme_minimal()
+
+gg_interactive <- ggplotly(gg, tooltip = c("name", "escanos"))
+gg_interactive
+
+```
+
+
+NORMALIZAMOS LOS DATOS EN UNA ESCALA DEL 1 AL10 
+
+```{r}
+# Normalizar los valores de escanos a una escala de 1 a 10
+data$corrupcion_normalizados <- (data$corrupcion - min(data$corrupcion, na.rm = TRUE)) /
+  (max(data$corrupcion, na.rm = TRUE) - min(data$corrupcion, na.rm = TRUE)) * 9 + 1
+
+data$estabilidad_politica_normalizados <- (data$estabilidad_politica - min(data$estabilidad_politica, na.rm = TRUE)) /
+  (max(data$estabilidad_politica, na.rm = TRUE) - min(data$estabilidad_politica, na.rm = TRUE)) * 9 + 1
+
+data$educacion_superior_normalizados <- (data$educacion_superior - min(data$educacion_superior, na.rm = TRUE)) /
+  (max(data$educacion_superior, na.rm = TRUE) - min(data$educacion_superior, na.rm = TRUE)) * 9 + 1
+
+data$PBI_normalizados <- (data$PBI - min(data$PBI, na.rm = TRUE)) /
+  (max(data$PBI, na.rm = TRUE) - min(data$PBI, na.rm = TRUE)) * 9 + 1
+
+data$fuerza_laboral_normalizados <- (data$fuerza_laboral - min(data$fuerza_laboral, na.rm = TRUE)) /
+  (max(data$fuerza_laboral, na.rm = TRUE) - min(data$fuerza_laboral, na.rm = TRUE)) * 9 + 1
+```
+
+
+### Estabilidad Política por Regiones
+
+```{r}
+
+# Agrupar por región y calcular la media de estabilidad política (en escala de 1 a 10)
+region_estabilidad_media <- data %>%
+  group_by(region) %>%
+  summarise(
+    media_estabilidad = mean(estabilidad_politica_normalizados, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Crear gráfico de barras horizontal con la media de estabilidad política por región, en escala de 0 a 10
+ggplot(region_estabilidad_media, aes(x = media_estabilidad, y = reorder(region, media_estabilidad), fill = region)) +
+  geom_bar(stat = "identity") +  # Usamos "identity" para que las barras muestren las medias
+  geom_text(aes(label = round(media_estabilidad, 2)), hjust = -0.2, size = 3.5) +  # Agregar los números al costado de las barras
+  labs(
+    title = "Media de Estabilidad Política por Región (Escala 1 a 10)",
+    x = "Media de Estabilidad Política (Escala 1-10)",
+    y = "Región",
+    fill = "Región"
+  ) +
+  scale_x_continuous(limits = c(0, 10)) +  # Ajustar el eje X para que vaya de 0 a 10
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Eliminar la leyenda si no la necesitas
+    axis.text.y = element_text(size = 10),  # Asegurar que las etiquetas del eje Y sean legibles
+    axis.title.y = element_blank(),  # Eliminar el título del eje Y si no es necesario
+    axis.text.x = element_text(size = 10),  # Ajustar el tamaño del texto en el eje X
+    plot.title = element_text(hjust = 0.5)  # Centrar el título
+  )
+
+```
+
+
+### Corrupción por Regiones 
+
+```{r}
+region_estabilidad_media <- data %>%
+  group_by(region) %>%
+  summarise(
+    media_estabilidad = mean(corrupcion_normalizados, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(region_estabilidad_media, aes(x = media_estabilidad, y = reorder(region, media_estabilidad), fill = region)) +
+  geom_bar(stat = "identity") +  # Usamos "identity" para que las barras muestren las medias
+  geom_text(aes(label = round(media_estabilidad, 2)), hjust = -0.2, size = 3.5) +  # Agregar los números al costado de las barras
+  labs(
+    title = "Media de Corrupción por Región (Escala 1 a 10)",
+    x = "Media de Corrupción (Escala 1-10)",
+    y = "Región",
+    fill = "Región"
+  ) +
+  scale_x_continuous(limits = c(0, 10)) +  # Ajustar el eje X para que vaya de 0 a 10
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Eliminar la leyenda si no la necesitas
+    axis.text.y = element_text(size = 10),  # Asegurar que las etiquetas del eje Y sean legibles
+    axis.title.y = element_blank(),  # Eliminar el título del eje Y si no es necesario
+    axis.text.x = element_text(size = 10),  # Ajustar el tamaño del texto en el eje X
+    plot.title = element_text(hjust = 0.5)  # Centrar el título
+  )
+
+
+```
+
+### Nivel de Educación Superior por Regiones
+
+```{r}
+region_estabilidad_media <- data %>%
+  group_by(region) %>%
+  summarise(
+    media_estabilidad = mean(educacion_superior_normalizados, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(region_estabilidad_media, aes(x = media_estabilidad, y = reorder(region, media_estabilidad), fill = region)) +
+  geom_bar(stat = "identity") +  # Usamos "identity" para que las barras muestren las medias
+  geom_text(aes(label = round(media_estabilidad, 2)), hjust = -0.2, size = 3.5) +  # Agregar los números al costado de las barras
+  labs(
+    title = "Media de Educación Superior por Región (Escala 1 a 10)",
+    x = "Media de Educación Superior (Escala 1-10)",
+    y = "Región",
+    fill = "Región"
+  ) +
+  scale_x_continuous(limits = c(0, 10)) +  # Ajustar el eje X para que vaya de 0 a 10
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Eliminar la leyenda si no la necesitas
+    axis.text.y = element_text(size = 10),  # Asegurar que las etiquetas del eje Y sean legibles
+    axis.title.y = element_blank(),  # Eliminar el título del eje Y si no es necesario
+    axis.text.x = element_text(size = 10),  # Ajustar el tamaño del texto en el eje X
+    plot.title = element_text(hjust = 0.5)  # Centrar el título
+  )
+
+```
+
+
+### PBI por Regiones
+
+```{r}
+region_estabilidad_media <- data %>%
+  group_by(region) %>%
+  summarise(
+    media_estabilidad = mean(PBI_normalizados, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(region_estabilidad_media, aes(x = media_estabilidad, y = reorder(region, media_estabilidad), fill = region)) +
+  geom_bar(stat = "identity") +  # Usamos "identity" para que las barras muestren las medias
+  geom_text(aes(label = round(media_estabilidad, 2)), hjust = -0.2, size = 3.5) +  # Agregar los números al costado de las barras
+  labs(
+    title = "Media de PBI por Región (Escala 1 a 10)",
+    x = "Media de PBI (Escala 1-10)",
+    y = "Región",
+    fill = "Región"
+  ) +
+  scale_x_continuous(limits = c(0, 10)) +  # Ajustar el eje X para que vaya de 0 a 10
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Eliminar la leyenda si no la necesitas
+    axis.text.y = element_text(size = 10),  # Asegurar que las etiquetas del eje Y sean legibles
+    axis.title.y = element_blank(),  # Eliminar el título del eje Y si no es necesario
+    axis.text.x = element_text(size = 10),  # Ajustar el tamaño del texto en el eje X
+    plot.title = element_text(hjust = 0.5)  # Centrar el título
+  )
+```
+
+
+### Fuerza Laboral Femenina por Regiones 
+
+```{r}
+region_estabilidad_media <- data %>%
+  group_by(region) %>%
+  summarise(
+    media_estabilidad = mean(fuerza_laboral_normalizados, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(region_estabilidad_media, aes(x = media_estabilidad, y = reorder(region, media_estabilidad), fill = region)) +
+  geom_bar(stat = "identity") +  # Usamos "identity" para que las barras muestren las medias
+  geom_text(aes(label = round(media_estabilidad, 2)), hjust = -0.2, size = 3.5) +  # Agregar los números al costado de las barras
+  labs(
+    title = "Media de Fuerza Laboral por Región (Escala 1 a 10)",
+    x = "Media de Fuerza Laboral (Escala 1-10)",
+    y = "Región",
+    fill = "Región"
+  ) +
+  scale_x_continuous(limits = c(0, 10)) +  # Ajustar el eje X para que vaya de 0 a 10
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Eliminar la leyenda si no la necesitas
+    axis.text.y = element_text(size = 10),  # Asegurar que las etiquetas del eje Y sean legibles
+    axis.title.y = element_blank(),  # Eliminar el título del eje Y si no es necesario
+    axis.text.x = element_text(size = 10),  # Ajustar el tamaño del texto en el eje X
+    plot.title = element_text(hjust = 0.5)  # Centrar el título
+  )
+```
+
+Descripción de variables {}
+=====================================      
+
+ Column {data-width=500}
+--------------------------------------------
+### Variable dependiente e independiente
+
+La variable "escanos" será el foco de este análisis para evaluar cómo las variables seleccionadas pueden influir en ella. Además, es necesario establecer la relación entre "escanos" (la variable dependiente) y las variables independientes y de control.
+
+En cuanto a la data del año en cuestión, 2020, la variable dependiente muestra una distribución sesgada, ya que, al verificar los valores de la media con 23.94 y la mediana con 22.58, observamos una distribución hacia la derecha. Esto sugiere que hay países con niveles de participación femenina muy altos que están empujando el promedio hacia arriba.Sin embargo, como la mediana es menor que la media, la mayoría de los países tienen una proporción de participación femenina más baja que el promedio. Por tanto, se ve na tendencia hacia niveles bajos o moderados de participación femenina en los parlamentos, lo que indica que todavía no se ha alcanzado una representación equitativa en muchos contextos. 
+
+Resumen estadístico de la variable dependiente: 
+
+```{r}
+summary(data$escanos)
+```
+
+### Histograma de participación femenina en los parlamentos en el año 2020
+
+```{r}
+hist(data$escanos, main = "Distribución de participación de las mujeres en parlamentos nacionales", xlab = "Valores", col = "lightblue")
+```
+> Como se observa, hay un sesgo hacia la derecha. 
+
+
+### Boxplot de participación femenina en los parlamentos por regiones en el 2020
+
+
+```{r}
+library(ggplot2)
+
+ggplot(data, aes(x = escanos, y = region, fill = region)) +
+  geom_boxplot(alpha = 0.6) +  # Creamos el boxplot #Alpha en 0.6 hace que el gráfico tenga los colores más transparentes
+  labs(x = "Participación Femenina en Parlamentos", y = "Región") + #títulos
+  theme_minimal() +  # Tema limpio
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  #ajustat el X para que esté más amplio
+```
+> Europa Occidental lidera en representación femenina, con la mediana más alta y valores consistentemente elevados, a pesar de dos outliers bajos. En contraste, Oceanía tiene la menor representación, con la mediana más baja y una notable dispersión, destacando un único outlier positivo. Norteamérica, por su parte, presenta niveles moderados y uniformes, reflejados en una mediana intermedia y sin dispersión significativa.
+
+
+ Column {data-width=500}
+-----------------------------------------------------
+
+### Summary de variables númericas
+
+```{r}
+data$estabilidad_politica <- as.numeric(data$estabilidad_politica)
+data$corrupcion <- as.numeric(data$corrupcion)
+data$escanos <- as.numeric(data$escanos)
+data$educacion_superior <- as.numeric(data$educacion_superior)
+data$PBI <- as.numeric(data$PBI)
+data$fuerza_laboral <- as.numeric(data$fuerza_laboral)
+```
+
+
+```{r}
+library(DT)
+library(vtable)
+
+# Crear la tabla resumen con sumtable para todas las variables de la dataset.
+sumtable(data, out = "return") %>%
+  datatable(options = list(scrollX = TRUE))
+
+```
+> Recordar que los valores están siendo redondeados. 
+
+### Str de todas las variables
+
+```{r}
+library(DT)
+library(vtable)
+vtable(data, out = "return")%>%
+  datatable(options = 
+              list(c(scrollX=TRUE)))
+```
+
+Column {data-width=500} {.tabset}
+-----------------------------------------------------------------------
+
+### Gráfico de la Matriz de Correlaciones
+
+
+```{r}
+# Seleccionar las variables deseadas del dataframe 'data'
+data_cor = data[, c("escanos", "PBI", "educacion_superior", "estabilidad_politica", "fuerza_laboral", "corrupcion")]
+
+# Verifica que no haya NA's en las columnas seleccionadas 
+data_cor = na.omit(data_cor)
+```
+
+```{r}
+library(polycor)
+corMatrix=polycor::hetcor(data_cor)$correlations
+round(corMatrix,2)
+```
+```{r,fig.width=12, fig.height=8}
+library(ggcorrplot)
+
+ggcorrplot(corMatrix)
+```
+
+> Se optó por este gráfico debido a que en los gráficos de dispersión, al ser tantos países, no se observaba si había o no correlación. 
+
+Modelos de regresión {}
+=====================================     
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Regresión de Gauss
+
+Nuestra variable dependiente es una númerica continua sin acotar, por lo que ejecutaremos regresiones gaussianas. 
+
+En la primera regresión, todas las variables independientes mantienen una relación positiva respecto de la variable dependiente, excepto estabilidad política. Las variables estadísticamente significativas son fuerza laboral y corrupción, y se visualiza que el R2 ajustado es muy bajo.
+
+En ese sentido, se procede a estandarizar la regresión para visualizar el efecto real de las variables independientes en la dependiente. Se observa que el AIC se mantiene. Fuerza laboral  y corrupción se mantienen como significativas con efectos de 1.85 con significancia de 0.05 y 4.12 con significancia de 0.01.
+
+Incluyendo nuestra variable de control (igualdad), observamos que el R2 ajustado presenta una importante mejora y que las variables estadísticamente significativas no son solo estabilidad política y corrupción, sino también igualdad y educación superior.
+
+Comparando los efectos de las variables independientes en el modelo estandarizado sin la variable de control y el modelo estandarizado con la variable de control, se identifica que el R2 ajustado explica mejor la variabilidad, es decir, incrementa, por la variable de control. Elaborando una Tabla Anova, seleccionamos como mejor modelo la regresión que incluye la variable de control igualdad.
+
+Column {data-width=400} {.tabset}
+-----------------------------------------------------------------------
+
+### Regresión
+
+```{r}
+# Ajustar el modelo de regresión múltiple (R ignora NA's automáticamente)
+modelo <- lm(escanos ~ PBI + educacion_superior + estabilidad_politica + fuerza_laboral + corrupcion, 
+             data = data)
+
+# Resumen del modelo
+summary(modelo)
+
+# Usar modelsummary para mostrar el resumen del modelo
+library(modelsummary)
+library(kableExtra)
+
+# No necesitas envolver el modelo en una lista
+modelsummary(modelo, 
+             title = "Regresion: modelo 1",
+             stars = TRUE,
+             output = "kableExtra")
+
+```
+
+> Variable dependiente= Escaños; Variables independientes= PBI, Educación Superior, Estabilidad Política, Fuerza Laboral femenina, Corrupción.
+
+### Regresión estandarizada 
+
+```{r}
+# Escalar (estandarizar) las variables independientes
+data_estandarizada <- data %>%
+  mutate(
+    PBI = scale(PBI),
+    educacion_superior = scale(educacion_superior),
+    estabilidad_politica = scale(estabilidad_politica),
+    fuerza_laboral = scale(fuerza_laboral),
+    corrupcion = scale(corrupcion)
+  )
+
+# Ajustar el modelo de regresión múltiple estandarizado
+modelo_estandarizado <- lm(escanos ~ PBI + educacion_superior + estabilidad_politica + fuerza_laboral + corrupcion, 
+                           data = data_estandarizada)
+
+# Resumen del modelo estandarizado
+summary(modelo_estandarizado)
+
+# Mostrar el resumen del modelo estandarizado
+modelsummary(modelo_estandarizado, 
+             title = "Regresion: modelo 2",
+             stars = TRUE,
+             output = "kableExtra")
+
+```
+
+### Regresión con variable de control
+
+```{r}
+# Ajustar el modelo de regresión múltiple con la variable de control "igualdad"
+modelo_con_control <- lm(escanos ~ PBI + educacion_superior + estabilidad_politica + fuerza_laboral + corrupcion + igualdad, 
+                         data = data)
+
+# Resumen del modelo con la variable de control
+summary(modelo_con_control)
+
+# Mostrar el resumen del modelo con el control
+modelsummary(modelo_con_control, 
+             title = "Regresion Anidada: modelo 1 y 3",
+             stars = TRUE,
+             output = "kableExtra")
+
+```
+
+### Regresión con variable de control estandarizada
+
+```{r}
+# Escalar (estandarizar) las variables independientes, incluida la variable de control "igualdad"
+control_estandarizado <- data %>%
+  mutate(
+    PBI = scale(PBI),
+    educacion_superior = scale(educacion_superior),
+    estabilidad_politica = scale(estabilidad_politica),
+    fuerza_laboral = scale(fuerza_laboral),
+    corrupcion = scale(corrupcion),
+    igualdad = scale(igualdad)
+  )
+
+# Ajustar el modelo de regresión múltiple estandarizado con la variable de control
+modelo_estandarizado_con_control <- lm(escanos ~ PBI + educacion_superior + estabilidad_politica + fuerza_laboral + corrupcion + igualdad, 
+                                       data = control_estandarizado)
+
+# Resumen del modelo estandarizado con el control
+summary(modelo_estandarizado_con_control)
+
+# Mostrar el resumen del modelo estandarizado con control
+modelsummary(modelo_estandarizado_con_control, 
+             title = "Regresion: modelo 4",
+             stars = TRUE,
+             output = "kableExtra")
+
+```
+
+### Regresión estandarizada con variable de control estandarizada
+
+```{r}
+# Asegúrate de que el modelo con control (no estandarizado) y el modelo con control estandarizado estén ajustados:
+modelo_estandarizado <- lm(escanos ~ PBI + educacion_superior + estabilidad_politica + fuerza_laboral + corrupcion, 
+                           data = data_estandarizada)
+
+modelo_estandarizado_con_control <- lm(escanos ~ PBI + educacion_superior + estabilidad_politica + fuerza_laboral + corrupcion + igualdad, 
+                                       data = control_estandarizado)
+
+# Crear una lista con ambos modelos para compararlos
+modelo_lista <- list('apropiacion (II)' = modelo_estandarizado,
+                     'apropiacion (IV)' = modelo_estandarizado_con_control)
+
+# Usar modelsummary para mostrar los resultados de ambos modelos en una tabla
+modelsummary(modelo_lista, 
+             title = "Regresion Anidada: modelo 3 y 4",
+             stars = TRUE,
+             output = "kableExtra")
+
+```
+
+### Comparar modelos
+
+```{r}
+library(magrittr)
+library(knitr)
+tanova=anova(modelo, modelo_con_control)
+
+kable(tanova,
+      caption = "Tabla ANOVA para comparar modelos")%>%kableExtra::kable_styling(full_width = FALSE)
+```
+>Se escoge el segundo modelo. 
+
+Column {data-width=500} {.tabset}
+-----------------------------------------------------------------------
+### Linealidad
+
+```{r}
+# Cargar librerías necesarias
+library(tidyverse)
+library(car)         # Para pruebas como VIF y homocedasticidad
+library(ggplot2)     # Para visualización
+library(performance) # Para valores influyentes y otros chequeos
+library(lmtest)
+
+# 1) Verificación de linealidad
+# Gráfico de residuos vs valores ajustados
+ggplot(data.frame(fitted = fitted(modelo_con_control), residuals = residuals(modelo_con_control)), aes(x = fitted, y = residuals)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "loess", color = "red", se = FALSE) +
+  labs(title = "Residuos vs Valores Ajustados", x = "Valores Ajustados", y = "Residuos") +
+  theme_minimal()
+```
+
+### Homocedasticidad
+
+```{r}
+# 2) Verificación de homocedasticidad
+# Prueba de Breusch-Pagan
+bptest <- bptest(modelo_con_control)
+print(bptest)
+
+# Gráfico de escala-location (homocedasticidad visual)
+plot(modelo_con_control, which = 3)
+```
+
+### Normalidad de Residuos
+
+```{r}
+# 3) Verificación de normalidad de los residuos
+# Histograma de residuos estandarizados
+residuals_std <- rstandard(modelo_con_control)
+ggplot(data.frame(residuals_std), aes(x = residuals_std)) +
+  geom_histogram(aes(y = ..density..), color = "black", fill = "lightblue", bins = 20) +
+  geom_density(color = "red", size = 1) +
+  labs(title = "Distribución de los Residuos Estandarizados", x = "Residuos Estandarizados", y = "Densidad") +
+  theme_minimal()
+
+# Prueba de Shapiro-Wilk
+shapiro_test <- shapiro.test(residuals_std)
+print(shapiro_test)
+```
+
+### Multicolinealidad
+
+```{r}
+# 4) Verificación de no multicolinealidad
+# Factores de Inflación de la Varianza (VIF)
+vif_values <- vif(modelo_con_control)
+print(vif_values)
+```
+
+### Valores Influyentes
+
+```{r}
+library(kableExtra)
+# 5) Identificación de valores influyentes
+# Gráfico de leverage vs residuals estandarizados
+plot(modelo_con_control, which = 5)
+```
+
+### Valores Cook's Distance para una mejor visualizavión de valores influyentes 
+
+```{r}
+cooks_distance <- cooks.distance(modelo)
+influential <- which(cooks_distance > (4 / nrow(data)))
+cat("Valores influyentes (según Cook's Distance):", influential, "\n")
+
+# Visualización de Cook's Distance
+ggplot(data.frame(obs = 1:length(cooks_distance), cooks_distance), aes(x = obs, y = cooks_distance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_hline(yintercept = 4 / nrow(data), linetype = "dashed", color = "red") +
+  labs(title = "Cook's Distance", x = "Observación", y = "Cook's Distance") +
+  theme_minimal()
+```
+
+ANÁLISIS FACTORIAL y CORRELACIÓN{}
+===================================== 
+
+Column {data-width=800}
+-------------------------------------------------   
+### GRÁFICO DE MATRIZ DE CORRELACIÓN
+
+Este gráfico nos permite ver si las asociaciones entre las variables propuestas son débiles, moderadas o fuertes. 
+
+```{r}
+# Seleccionar las variables deseadas del dataframe 'data'
+dataClus = data[, c("escanos", "educacion_superior", "PBI", "estabilidad_politica", "corrupcion", "fuerza_laboral")]
+
+# Verifica que no haya NA's en las columnas seleccionadas antes de usar daisy()
+dataClus = na.omit(dataClus)
+```
+
+```{r}
+# Cargar la biblioteca necesaria
+library(ggcorrplot)
+
+# Generar la matriz de correlación y graficarla
+ggcorrplot(cor(dataClus), lab = TRUE, show.diag = TRUE)
+
+```
+
+Column {data-width=500} 
+-------------------------------------------------  
+### Análisis Factorial Exploratorio (EFA)
+
+Se explorará la data y verificaremos si el análisis respectivo nos arroja factores que resumen cada uno un conjunto de variables potenciales a utilizar. 
+
+Para ello, es necesario realizar 2 test para confirmar si, en efecto, los datos en cuestión permiten llevar a cabo un análisis factorial.
+ 
+```{r}
+# Primero, asegurémonos de tener las bibliotecas necesarias
+library(psych)
+library(ggplot2)
+library(corrplot)
+```
+
+### Test de Kaiser-Meyer-Olkin (KMO)
+
+```{r}
+#Verificar si los datos permiten factorizar
+kmo_result <- KMO(dataClus)
+print(kmo_result)
+```
+
+### Test de Bartlett 
+
+```{r}
+# Test de esfericidad de Bartlett
+bartlett_result <- cortest.bartlett(cor(dataClus), n = nrow(dataClus))
+print(bartlett_result)
+```
+
+Column {data-width=500} {.tabset}
+-------------------------------------------------
+### VERIFICACIÓN: Matriz ADECUADA
+
+> *Hnula*: La matriz de correlación es una MATRIZ IDENTIDAD
+
+
+```{r}
+cortest.bartlett(corMatrix,n=nrow(dataClus))$p.value>0.05
+```
+
+> *Hnula*: La matriz de correlación es una MATRIZ SINGULAR
+
+```{r}
+library(matrixcalc)
+
+is.singular.matrix(corMatrix)
+```
+
+
+### DETERMINACIÓN DE FACTORES
+
+
+```{r}
+#Determinar el número de factores
+fa_parallel <- fa.parallel(dataClus, fm = "ml", fa = "fa")
+```
+
+> Se sugiere 2 factores
+
+
+### REDIMENSIONAR
+
+> Resultado Inicial
+ 
+```{r}
+library(GPArotation)
+resfa <- fa(dataClus,
+            nfactors = 2,
+            cor = 'mixed',
+            rotate = "varimax", #oblimin?
+            fm="minres")
+print(resfa$loadings)
+```
+
+> Resultado Final(mejorado)
+
+```{r}
+print(resfa$loadings,cutoff = 0.5)
+```
+
+
+
+### DIAGRAMA: RESULTADO DEL EFA
+
+
+```{r, fig.width=10, fig.height=8}
+fa.diagram(resfa,main = "Resultados del EFA")
+```
+
+> No se encuentró un concepto subyacente
+
+
+Análisis CONGLOMERADO y CLUSTERIZACIÓN{}
+=====================================     
+
+Column {data-width=400}
+-------------------------------------------------------------
+
+### Analisis: pasos para la clusterización 
+
+El proceso de clusterización comienza con la selección de las variables relevantes para el análisis y la creación de un nuevo rowname basado en la columna de países, lo que permitirá clasificar los países en subgrupos sin perder los datos asociados.
+
+En primer lugar, se observa que la correlación entre la variable central (en este caso, "escanos") y algunas de las variables seleccionadas no es significativamente alta, siendo la regulación económica y el nivel de corrupción las que presentan las correlaciones más altas con la variable central.
+
+Para llevar a cabo la clusterización, se intentó utilizar las estrategias de Partición y Jerarquización; sin embargo, debido a que ninguno de los 3 métodos (PAM, AGNES, DIANA) nos dieron más que un cluster, se optó por usar un método alternativo llamado Silhouette Method para identificar clusters. Se hizo una modificación en la sintaxis para que pueda ser aplicado a la sintaxis del gráfico de Siluetas por medio de la sintaxis de PAM. Este último nos arrojó el resultado de un K=2. Al aplicar este algoritmo, se identificaroon valores mal clusterizados a través del índice silhouette. Por medio de otro análisis, se obtuvo que 6 países presentaron un silhouette width negativo, lo que ya indicaba el índice silhouette de manera gráfica. 
+
+### Inicio del proceso de clusterización: se calcula número de clusters
+
+Por medio de una estrategia alternativa, como se mencionó en al apartado anterior, se obtendrá el número de clusters adecuado para este análisis.No obstante, en primer lugar se hizo el análisis de PAM, AGNES y DIANA, para que se visibilice esta limitación en los datos. 
+
+```{r}
+library(cluster)     # Para clustering jerárquico
+library(factoextra)  # Para visualización
+library(dendextend)  # Para mejorar dendrogramas
+```
+
+```{r}
+# Asignar los nombres de fila a 'dataClus' primero
+row.names(dataClus) = data$Country_Name
+
+# Calcular la matriz de distancias utilizando la métrica Gower
+library(cluster)
+g.dist = daisy(dataClus, metric = "gower")
+
+```
+
+```{r}
+#estandarizamos las variables
+dataClus[] <- scale(dataClus)
+```
+
+Column {data-width=500}{.tabset}
+---------------------------------------
+### PAM
+
+```{r}
+fviz_nbclust(dataClus, pam,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F)
+```
+
+### DIANA
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "diana")
+```
+
+### AGNES
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "agnes")
+```
+
+> Ninguno de los 3 métodos identifica una agrupación de los países más allá de 1 solo cluster.  
+
+Column {data-width=600}
+-------------------------------------------------------------
+### ALTERNATIVA DE CLUSTERIZACIÓN
+
+```{r}
+#se puso "pam" en la sintaxis para poder usarla en el análisis posterior
+fviz_nbclust(dataClus, FUN = pam, method = "silhouette", k.max = 10)
+```
+
+> No refleja la variabilidad que se esperó considerando la magnitud de la data propuesta.Sin embargo, para fines prácticos, se considerará el K=2 para el análisis posterior.   
+
+
+### Clauster vía ALTERNATIVA
+
+```{r}
+library(kableExtra)
+set.seed(123)
+res.pam=pam(g.dist,2,cluster.only = F)
+
+#nueva columna
+dataClus$pam=res.pam$cluster
+
+# ver
+
+head(dataClus,10)%>%kbl()%>%kable_styling()
+```
+
+Column {data-width=700}{.tabset}
+---------------------------------------
+### Evaluación de uso: SILUETAS
+
+```{r}
+fviz_silhouette(res.pam,print.summary = F)
+```
+> Las barras negativas indican paises mal clusterizados
+
+### Valores mal clusterizados
+
+```{r}
+silPAM = data.frame(res.pam$silinfo$widths)  
+silPAM$country = row.names(dataClus)        
+poorPAM = silPAM[silPAM$sil_width < 0, 'country'] %>% sort()
+poorPAM 
+```
+> 6 países de 191
+
+Promedio de cada cluster
+
+```{r}
+aggregate(.~ pam, data=dataClus,mean)
+```
+> Cluster 1: Países con baja representación femenina en el parlamento, baja educación superior para mujeres, inestabilidad política y menor participación laboral femenina.
+> Cluster 2: Países con mejor representación femenina en el parlamento, mayor graduación femenina y participación laboral, pero que enfrentan desafíos económicos y altos niveles de corrupción.
+
+### Visualización comparativa 
+
+```{r}
+# k es la cantidad de dimensiones
+proyeccion = cmdscale(g.dist, k=2,add = T) 
+head(proyeccion$points,5)
+```
+> Dimensiones Nuevas: dim1, dim2
+
+```{r}
+# data frame prep:
+data$dim1 <- proyeccion$points[,1]
+data$dim2 <- proyeccion$points[,2]
+```
+
+
+
+```{r}
+library(ggrepel)
+base= ggplot(data,aes(x=dim1, y=dim2,label=row.names(dataClus))) 
+base + geom_text_repel(size=3, max.overlaps = 50,min.segment.length = unit(0, 'lines'))
+```
+
+
+
+
+
